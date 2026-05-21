@@ -1,1 +1,47 @@
 @import "tailwindcss";
+
+  @theme {
+      --font-mono: 'Space Mono', monospace;
+      --font-sans: 'DM Sans', sans-serif;
+      --color-surface: #111111;
+      --color-border: #222222;
+      --color-border-soft: #2a2a2a;
+      --color-muted: #555555;
+      --color-dimmed: #444444;
+      --color-ghost: #2e2e2e;
+      --color-cream: #f0ede8;
+      --color-online: #3ecf8e;
+      --color-danger: #e24b4a;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    .pulse { animation: pulse-dot 2s infinite; }
+    .pulse-fast { animation: pulse-dot 1.2s infinite; }
+
+    .corner {
+      @apply absolute w-[18px] h-[18px];
+      border-color: rgba(255,255,255,0.3);
+      border-style: solid;
+    }
+    .corner-tl { top:14px; left:14px;  border-width: 1.5px 0 0 1.5px; }
+    .corner-tr { top:14px; right:14px; border-width: 1.5px 1.5px 0 0; }
+    .corner-bl { bottom:14px; left:14px;  border-width: 0 0 1.5px 1.5px; }
+    .corner-br { bottom:14px; right:14px; border-width: 0 1.5px 1.5px 0; }
+
+    .shutter {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: var(--color-cream);
+      border: 3px solid var(--color-border-soft);
+      outline: 2px solid var(--color-cream);
+      outline-offset: 3px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.15s;
+    }
+    .shutter:hover { background: #ffffff; }
+    .shutter:active { transform: scale(0.91); background: #cccccc; }

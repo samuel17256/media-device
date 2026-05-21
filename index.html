@@ -1,53 +1,165 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media-Devices</title>
+    <title>Media Devices</title>
     <link rel="stylesheet" href="./src/output.css">
-</head>
-<body>
-    <h1>Welcome to my media devices</h1>
-    <p id="isOnline">Checking internet connection</p>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap"
+        rel="stylesheet">
 
-    <div>
-        <video id="camerafeed" autoplay height="300" width="300"></video>
-        <div>
-            <button id="capture">say cheese</button>
+</head>
+
+<body class="bg-[#0a0a0a] text-cream font-sans min-h-screen flex justify-center items-start px-6 py-10">
+
+    <div class="w-full max-w-130">
+        <!-- Header -->
+        <div class="flex items-end justify-between mb-10">
+            <h1 class="font-mono text-[13px] font-normal tracking-[0.18em] uppercase text-[#888]">
+                media — devices
+            </h1>
+            <div
+                class="flex items-center gap-2 bg-[#141414] border border-soft rounded-full px-4 py-1.5 font-mono text-xs tracking-wide text-[#888]">
+                <div class="w-1.75 h-1.75 rounded-full bg-online shadow-[0_0_6px_#3ecf8e88] pulse" id="statusDot">
+                </div>
+                <span id="isOnline">checking...</span>
+            </div>
         </div>
-        <canvas id="canvas"></canvas>
+
+        <!-- Viewport -->
+        <div class="relative bg-[#111] border border-[#222] rounded-2xl overflow-hidden aspect-4/3 mb-5">
+            <video id="camerafeed" autoplay playsinline muted class="w-full h-full object-cover block"></video>
+
+            <div class="corner corner-tl"></div>
+            <div class="corner corner-tr"></div>
+            <div class="corner corner-bl"></div>
+            <div class="corner corner-br"></div>
+
+         
+            <div id="recBadge"
+                class="hidden absolute top-4 left-1/2 -translate-x-1/2 items-center gap-1.5 bg-black/55 border border-white/12 rounded-full px-3 py-1 font-mono text-[11px] tracking-[0.08em] text-white/60">
+                <div class="w-1.5 h-1.5 rounded-full bg-danger pulse-fast"></div>
+                LIVE
+            </div>
+
+            <div id="noFeed" class="absolute inset-0 flex flex-col items-center justify-center gap-2.5 text-[#444]">
+                <i class="ti ti-camera-off text-[40px]"></i>
+                <span class="font-mono text-[13px] tracking-wider">no camera feed</span>
+            </div>
+        </div>
+
+     
+        <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-4 mb-6">
+            <span class="font-mono text-xs text-[#555] tracking-widest" id="shotCount">0 shots</span>
+            <button class="shutter" id="capture" aria-label="Capture photo">
+                <i class="ti ti-camera text-[22px] text-[#0a0a0a]"></i>
+            </button>
+            <span class="font-mono text-xs text-[#555] tracking-widest text-right" id="timeLabel">--:--</span>
+        </div>
+
+        <!-- Divider -->
+        <div class="h-px bg-[#1e1e1e] mb-6"></div>
+
+   
+        <div>
+            <h2 class="font-mono text-[11px] tracking-[0.15em] uppercase text-[#444] mb-4">latest capture</h2>
+
+            <div class="bg-[#111] border border-[#222] rounded-xl overflow-hidden min-h-40 flex items-center justify-center"
+                id="canvasWrap">
+                <div class="flex flex-col items-center gap-2 text-ghost" id="canvasPlaceholder">
+                    <i class="ti ti-photo-off text-[32px]"></i>
+                    <span class="font-mono text-xs tracking-[0.08em]">no capture yet</span>
+                </div>
+                <canvas id="canvas" class="max-w-full rounded-lg hidden"></canvas>
+            </div>
+
+            <button id="downloadBtn"
+                class="hidden mt-4 items-center gap-2 bg-transparent border border-soft text-[#888] px-4 py-2 rounded-lg font-mono text-xs tracking-wider cursor-pointer transition-colors hover:border-[#555] hover:text-[#ccc]">
+                <i class="ti ti-download text-[15px]"></i>
+                download capture
+            </button>
+        </div>
+
     </div>
 
     <script>
-        let camerafeed=document.getElementById("camerafeed");
-        let canvas=document.getElementById("canvas");
+        const camerafeed = document.getElementById('camerafeed');
+        const canvas = document.getElementById('canvas');
+        const captureBtn = document.getElementById('capture');
+        const isOnlineEl = document.getElementById('isOnline');
+        const statusDot = document.getElementById('statusDot');
+        const recBadge = document.getElementById('recBadge');
+        const noFeed = document.getElementById('noFeed');
+        const canvasPlaceholder = document.getElementById('canvasPlaceholder');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const shotCountEl = document.getElementById('shotCount');
+        const timeLabel = document.getElementById('timeLabel');
 
-        navigator.mediaDevices.getUserMedia({
-            video:true,
-            audio:true
-        }).then((stream)=>{
-            console.log(stream);
-            camerafeed.srcObject=stream
-        })
+        let shots = 0;
 
-        let capture=document.getElementById("capture");
-        capture.addEventListener("click",()=>{
-            const ctx = canvas.getContext("2d")
-            canvas.width=camerafeed.videoWidth
-            canvas.height=camerafeed.videoHeight
+        // Camera
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => {
+                camerafeed.srcObject = stream;
+                noFeed.style.display = 'none';
+                recBadge.style.display = 'flex';
+            })
+            .catch(() => {
+                noFeed.querySelector('span').textContent = 'camera access denied';
+            });
 
-            ctx.drawImage(camerafeed,0,0)
-        })
-        let isOnline=document.getElementById("isOnline")
+        // Capture
+        captureBtn.addEventListener('click', () => {
+            if (!camerafeed.srcObject || !camerafeed.videoWidth) return;
+            const ctx = canvas.getContext('2d');
+            canvas.width = camerafeed.videoWidth;
+            canvas.height = camerafeed.videoHeight;
+            ctx.drawImage(camerafeed, 0, 0);
+            canvas.style.display = 'block';
+            canvas.style.width = '100%';
+            canvasPlaceholder.style.display = 'none';
+            downloadBtn.style.display = 'flex';
+            shots++;
+            shotCountEl.textContent = shots + (shots === 1 ? ' shot' : ' shots');
+            captureBtn.style.transform = 'scale(0.88)';
+            setTimeout(() => captureBtn.style.transform = '', 120);
+        });
 
-        setInterval(()=>{
-            if(navigator.onLine){
-                isOnline.innerText="user is connected"
-            }else{
-                isOnline.innerText="user is disconnected"
+        // Download
+        downloadBtn.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'capture.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+
+        // Online status
+        setInterval(() => {
+            if (navigator.onLine) {
+                isOnlineEl.textContent = 'connected';
+                statusDot.style.background = '#3ecf8e';
+                statusDot.style.boxShadow = '0 0 6px #3ecf8e88';
+                statusDot.classList.add('pulse');
+            } else {
+                isOnlineEl.textContent = 'offline';
+                statusDot.style.background = '#e24b4a';
+                statusDot.style.boxShadow = '0 0 6px #e24b4a88';
+                statusDot.classList.remove('pulse');
             }
-        },1000)
+        }, 1000);
 
+        // Clock
+        setInterval(() => {
+            const d = new Date();
+            const h = String(d.getHours()).padStart(2, '0');
+            const m = String(d.getMinutes()).padStart(2, '0');
+            const s = String(d.getSeconds()).padStart(2, '0');
+            timeLabel.textContent = `${h}:${m}:${s}`;
+        }, 1000);
     </script>
 </body>
+
 </html>
