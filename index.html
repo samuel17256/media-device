@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media-Devices</title>
+    <link rel="stylesheet" href="./src/output.css">
+</head>
+<body>
+    <h1>Welcome to my media devices</h1>
+    <p id="isOnline">Checking internet connection</p>
+
+    <div>
+        <video id="camerafeed" autoplay height="300" width="300"></video>
+        <div>
+            <button id="capture">say cheese</button>
+        </div>
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script>
+        let camerafeed=document.getElementById("camerafeed");
+        let canvas=document.getElementById("canvas");
+
+        navigator.mediaDevices.getUserMedia({
+            video:true,
+            audio:true
+        }).then((stream)=>{
+            console.log(stream);
+            camerafeed.srcObject=stream
+        })
+
+        let capture=document.getElementById("capture");
+        capture.addEventListener("click",()=>{
+            const ctx = canvas.getContext("2d")
+            canvas.width=camerafeed.videoWidth
+            canvas.height=camerafeed.videoHeight
+
+            ctx.drawImage(camerafeed,0,0)
+        })
+        let isOnline=document.getElementById("isOnline")
+
+        setInterval(()=>{
+            if(navigator.onLine){
+                isOnline.innerText="user is connected"
+            }else{
+                isOnline.innerText="user is disconnected"
+            }
+        },1000)
+
+    </script>
+</body>
+</html>
