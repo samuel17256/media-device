@@ -11,6 +11,53 @@
         href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap"
         rel="stylesheet">
 
+    <style>
+        /* Voice button states */
+        #voiceBtn {
+            transition: all 0.2s ease;
+        }
+        #voiceBtn.listening {
+            border-color: #e24b4a !important;
+            color: #e24b4a !important;
+            box-shadow: 0 0 0 2px #e24b4a33;
+        }
+        #voiceBtn.listening .mic-icon {
+            animation: micPulse 1s ease-in-out infinite;
+        }
+        @keyframes micPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(0.9); }
+        }
+
+        /* Transcript pill */
+        #transcriptPill {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        #transcriptPill.hidden-pill {
+            opacity: 0;
+            transform: translateY(4px);
+            pointer-events: none;
+        }
+
+        /* Flash overlay on capture */
+        #flashOverlay {
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.05s ease;
+        }
+        #flashOverlay.flash {
+            opacity: 1;
+        }
+
+        /* Cheese ripple */
+        @keyframes cheeseRipple {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(2.5); }
+        }
+        .cheese-ripple {
+            animation: cheeseRipple 0.5s ease-out forwards;
+        }
+    </style>
 </head>
 
 <body class="bg-[#0a0a0a] text-cream font-sans min-h-screen flex justify-center items-start px-6 py-10">
@@ -33,16 +80,24 @@
         <div class="relative bg-[#111] border border-[#222] rounded-2xl overflow-hidden aspect-4/3 mb-5">
             <video id="camerafeed" autoplay playsinline muted class="w-full h-full object-cover block"></video>
 
+            <!-- Flash overlay -->
+            <div id="flashOverlay" class="absolute inset-0 bg-white rounded-2xl"></div>
+
             <div class="corner corner-tl"></div>
             <div class="corner corner-tr"></div>
             <div class="corner corner-bl"></div>
             <div class="corner corner-br"></div>
 
-         
             <div id="recBadge"
                 class="hidden absolute top-4 left-1/2 -translate-x-1/2 items-center gap-1.5 bg-black/55 border border-white/12 rounded-full px-3 py-1 font-mono text-[11px] tracking-[0.08em] text-white/60">
                 <div class="w-1.5 h-1.5 rounded-full bg-danger pulse-fast"></div>
                 LIVE
+            </div>
+
+            <!-- Voice transcript pill (inside viewport, bottom) -->
+            <div id="transcriptPill"
+                class="hidden-pill absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 border border-white/10 rounded-full px-4 py-1.5 font-mono text-[11px] tracking-wider text-white/50 whitespace-nowrap">
+                <span id="transcriptText">listening…</span>
             </div>
 
             <div id="noFeed" class="absolute inset-0 flex flex-col items-center justify-center gap-2.5 text-[#444]">
@@ -51,8 +106,8 @@
             </div>
         </div>
 
-     
-        <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-4 mb-6">
+        <!-- Controls -->
+        <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-4 mb-4">
             <span class="font-mono text-xs text-[#555] tracking-widest" id="shotCount">0 shots</span>
             <button class="shutter" id="capture" aria-label="Capture photo">
                 <i class="ti ti-camera text-[22px] text-[#0a0a0a]"></i>
@@ -60,10 +115,19 @@
             <span class="font-mono text-xs text-[#555] tracking-widest text-right" id="timeLabel">--:--</span>
         </div>
 
+        <!-- Voice button row -->
+        <div class="flex justify-center mb-6">
+            <button id="voiceBtn"
+                class="flex items-center gap-2 bg-transparent border border-[#2a2a2a] text-[#555] px-5 py-2 rounded-full font-mono text-[11px] tracking-[0.12em] cursor-pointer hover:border-[#444] hover:text-[#888] transition-colors">
+                <i class="ti ti-microphone mic-icon text-[14px]"></i>
+                <span id="voiceBtnLabel">say "cheese" to snap</span>
+            </button>
+        </div>
+
         <!-- Divider -->
         <div class="h-px bg-[#1e1e1e] mb-6"></div>
 
-   
+        <!-- Latest capture -->
         <div>
             <h2 class="font-mono text-[11px] tracking-[0.15em] uppercase text-[#444] mb-4">latest capture</h2>
 
@@ -97,10 +161,16 @@
         const downloadBtn = document.getElementById('downloadBtn');
         const shotCountEl = document.getElementById('shotCount');
         const timeLabel = document.getElementById('timeLabel');
+        const voiceBtn = document.getElementById('voiceBtn');
+        const voiceBtnLabel = document.getElementById('voiceBtnLabel');
+        const transcriptPill = document.getElementById('transcriptPill');
+        const transcriptText = document.getElementById('transcriptText');
+        const flashOverlay = document.getElementById('flashOverlay');
 
         let shots = 0;
+        let isListening = false;
+        let recognition = null;
 
-        // Camera
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             .then(stream => {
                 camerafeed.srcObject = stream;
@@ -111,9 +181,12 @@
                 noFeed.querySelector('span').textContent = 'camera access denied';
             });
 
-        // Capture
-        captureBtn.addEventListener('click', () => {
+        function doCapture() {
             if (!camerafeed.srcObject || !camerafeed.videoWidth) return;
+
+            flashOverlay.classList.add('flash');
+            setTimeout(() => flashOverlay.classList.remove('flash'), 120);
+
             const ctx = canvas.getContext('2d');
             canvas.width = camerafeed.videoWidth;
             canvas.height = camerafeed.videoHeight;
@@ -126,9 +199,10 @@
             shotCountEl.textContent = shots + (shots === 1 ? ' shot' : ' shots');
             captureBtn.style.transform = 'scale(0.88)';
             setTimeout(() => captureBtn.style.transform = '', 120);
-        });
+        }
 
-        // Download
+        captureBtn.addEventListener('click', doCapture);
+
         downloadBtn.addEventListener('click', () => {
             const link = document.createElement('a');
             link.download = 'capture.png';
@@ -136,7 +210,86 @@
             link.click();
         });
 
-        // Online status
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            voiceBtn.title = 'Speech recognition not supported in this browser';
+            voiceBtn.style.opacity = '0.35';
+            voiceBtn.style.cursor = 'not-allowed';
+            voiceBtnLabel.textContent = 'voice not supported';
+        } else {
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                let finalTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript.trim().toLowerCase();
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript;
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+
+                const display = (finalTranscript || interimTranscript).slice(-40);
+                if (display) {
+                    transcriptText.textContent = display;
+                    transcriptPill.classList.remove('hidden-pill');
+                }
+
+                if (finalTranscript.includes('cheese')) {
+                    doCapture();
+                    transcriptText.style.color = '#3ecf8e';
+                    transcriptText.textContent = '🧀 cheese!';
+                    setTimeout(() => {
+                        transcriptText.style.color = '';
+                    }, 800);
+                }
+            };
+
+            recognition.onerror = (event) => {
+                if (event.error === 'no-speech') return; 
+                stopListening();
+                voiceBtnLabel.textContent = 'mic error — try again';
+            };
+
+            recognition.onend = () => {
+                if (isListening) {
+                    try { recognition.start(); } catch(e) {}
+                }
+            };
+
+            voiceBtn.addEventListener('click', () => {
+                if (isListening) {
+                    stopListening();
+                } else {
+                    startListening();
+                }
+            });
+        }
+
+        function startListening() {
+            isListening = true;
+            voiceBtn.classList.add('listening');
+            voiceBtnLabel.textContent = 'listening… say "cheese"';
+            transcriptText.textContent = 'listening…';
+            transcriptPill.classList.remove('hidden-pill');
+            try { recognition.start(); } catch(e) {}
+        }
+
+        function stopListening() {
+            isListening = false;
+            voiceBtn.classList.remove('listening');
+            voiceBtnLabel.textContent = 'say "cheese" to snap';
+            transcriptPill.classList.add('hidden-pill');
+            try { recognition.stop(); } catch(e) {}
+        }
+
         setInterval(() => {
             if (navigator.onLine) {
                 isOnlineEl.textContent = 'connected';
@@ -151,7 +304,6 @@
             }
         }, 1000);
 
-        // Clock
         setInterval(() => {
             const d = new Date();
             const h = String(d.getHours()).padStart(2, '0');
